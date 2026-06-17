@@ -1,39 +1,37 @@
 import { GoogleLogin } from "@react-oauth/google";
-
 import { useAuth } from "../auth/AuthProvider";
-
 import { useNavigate } from "react-router-dom";
 
 export default function Login() {
   const { login } = useAuth();
-
   const navigate = useNavigate();
 
   async function googleSuccess(response: any) {
-    // Asta arata foarte naspa
     const res = await fetch("https://localhost:8001/api/login/google", {
       method: "POST",
-
-      headers: {
-        "Content-Type": "application/json",
-      },
-
-      body: JSON.stringify({
-        oauth_token: response.credential,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ oauth_token: response.credential }),
     });
-
     const data = await res.json();
-
     login(data.auth_token);
-
     navigate("/projects");
   }
 
   return (
-    <div>
-      <h1>Bug Tracker Login</h1>
-      <GoogleLogin onSuccess={googleSuccess} />
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-semibold text-zinc-100">Bug Tracker</h1>
+          <p className="text-zinc-500 text-sm mt-1">Sign in to continue</p>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-xl">
+          <p className="text-zinc-400 text-sm text-center mb-4">Continue with your Google account</p>
+          <div className="flex justify-center">
+            <GoogleLogin onSuccess={googleSuccess} theme="filled_black" shape="pill" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
