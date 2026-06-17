@@ -7,7 +7,7 @@ export default function NotificationBox() {
     const ws = new WebSocket("wss://localhost:8004/api/notifications");
 
     ws.onmessage = (event) => {
-      setNotifications((prev) => [...prev, event.data]);
+      setNotifications((prev) => [...prev, JSON.parse(event.data)]);
     };
 
     return () => ws.close();
