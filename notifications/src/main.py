@@ -33,12 +33,9 @@ app.add_middleware(
 
 
 def db():
-
     s = SessionLocal()
-
     try:
         yield s
-
     finally:
         s.close()
 

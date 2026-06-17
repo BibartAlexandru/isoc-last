@@ -3,7 +3,7 @@ CREATE TABLE bugs (
     name VARCHAR(150) NOT NULL,
     feature VARCHAR(50) NOT NULL,
     submitter_id INT NOT NULL,
-    assignee_id INT NOT NULL,
+    assignee_id INT,
     creation_date DATETIME NOT NULL,
     estimated_fixed_date DATETIME NOT NULL,
     status VARCHAR(50) NOT NULL,
