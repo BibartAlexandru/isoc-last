@@ -8,3 +8,19 @@
 - Frontend at `localhost:5137`
 - Services `auth`, `bug`, `notification`, `project` at ports `8001`, `8002`, `8003`, `8004`  
 - Databases in the same order: `3307`, `3308`, `3309`, `3310`
+
+### NGROK
+- `ngrok http --url=preanaphoral-christena-babblingly.ngrok-free.dev 3157`
+
+### REACT
+- Ideal da format la fisiere inainte de commit: `npx prettier --write "src/**/*.tsx"`
+
+### CERT TRUST
+- Suboptim, dar ok pentru dev
+```
+sudo cp ca.crt /usr/local/share/ca-certificates/
+sudo update-ca-certificates
+
+# ARCH
+sudo trust anchor /path/to/certificate.crt
+```
