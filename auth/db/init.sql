@@ -6,3 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 ALTER TABLE users
 ADD CONSTRAINT uq_users_email UNIQUE (email);
+
+INSERT IGNORE INTO users (id, name, email) VALUES
+    (1, 'Eduard Ohriniuc',  'eduard@example.com'),
+    (2, 'Alexandra Bibarts', 'alex@example.com'),
+    (3, 'Mihai Popescu',    'mihai@example.com');

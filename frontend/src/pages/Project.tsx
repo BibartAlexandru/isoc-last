@@ -88,7 +88,8 @@ export default function Project() {
   const [showArchiveProject, setShowArchiveProject] = useState(false);
   const [archiveReason, setArchiveReason] = useState("");
 
-  const [newMemberId, setNewMemberId] = useState("");
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [newMemberEmailError, setNewMemberEmailError] = useState("");
   const [newMemberRole, setNewMemberRole] = useState("Member");
 
   const [showCreateBug, setShowCreateBug] = useState(false);
@@ -152,14 +153,17 @@ export default function Project() {
   }
 
   async function addMember() {
-    const uid = parseInt(newMemberId, 10);
-    if (isNaN(uid)) { setError("Invalid user ID."); return; }
+    setNewMemberEmailError("");
+    if (!newMemberEmail.trim()) { setNewMemberEmailError("Enter an email address."); return; }
+    const uid = await resolveEmail(newMemberEmail, headers);
+    if (uid === undefined) { setNewMemberEmailError("No user found with that email."); return; }
+    if (uid === null) { setNewMemberEmailError("Enter an email address."); return; }
     const res = await fetch(`${PROJECT_API}/api/project/${id}`, {
       method: "PUT", headers,
       body: JSON.stringify({ members_add: [{ user_id: uid, role: newMemberRole }] }),
     });
     if (!res.ok) { setError("Failed to add member."); return; }
-    setNewMemberId(""); loadProject();
+    setNewMemberEmail(""); loadProject();
   }
 
   async function removeMember(uid: number) {
@@ -250,7 +254,12 @@ export default function Project() {
         </div>
         <div className="flex items-center gap-3">
           <NotificationPanel notifications={notifications} />
-          {userName && <span className="text-zinc-500 text-xs font-mono hidden sm:block">{userName}</span>}
+          {userName && (
+            <span className="text-zinc-500 text-xs font-mono hidden sm:block">
+              {userName}
+              {userId != null && <span className="text-zinc-700 ml-1">#{userId}</span>}
+            </span>
+          )}
         </div>
       </nav>
 
@@ -356,22 +365,25 @@ export default function Project() {
             </ul>
           )}
           {isOwner && !isArchived && (
-            <div className="px-4 py-3 border-t border-zinc-800/60 flex gap-2">
-              <input
-                className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder:text-zinc-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-                placeholder="User ID"
-                value={newMemberId}
-                onChange={(e) => setNewMemberId(e.target.value)}
-              />
-              <select
-                className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none"
-                value={newMemberRole}
-                onChange={(e) => setNewMemberRole(e.target.value)}
-              >
-                <option value="Member">Member</option>
-                <option value="Owner">Owner</option>
-              </select>
-              <button className={primaryBtn} onClick={addMember}>Add</button>
+            <div className="px-4 py-3 border-t border-zinc-800/60 space-y-2">
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder:text-zinc-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  placeholder="user@email.com"
+                  value={newMemberEmail}
+                  onChange={(e) => setNewMemberEmail(e.target.value)}
+                />
+                <select
+                  className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none"
+                  value={newMemberRole}
+                  onChange={(e) => setNewMemberRole(e.target.value)}
+                >
+                  <option value="Member">Member</option>
+                  <option value="Owner">Owner</option>
+                </select>
+                <button className={primaryBtn} onClick={addMember}>Add</button>
+              </div>
+              {newMemberEmailError && <p className="text-red-400 text-xs">{newMemberEmailError}</p>}
             </div>
           )}
         </div>

@@ -131,7 +131,12 @@ export default function Projects() {
         </div>
         <div className="flex items-center gap-3">
           <NotificationPanel notifications={notifications} />
-          {userName && <span className="text-zinc-500 text-xs font-mono hidden sm:block">{userName}</span>}
+          {userName && (
+            <span className="text-zinc-500 text-xs font-mono hidden sm:block">
+              {userName}
+              {userId != null && <span className="text-zinc-700 ml-1">#{userId}</span>}
+            </span>
+          )}
           <button onClick={() => { logout(); navigate("/login"); }}
             className="text-zinc-500 hover:text-zinc-200 text-sm transition-colors cursor-pointer">
             Sign out
