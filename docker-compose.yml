@@ -1,0 +1,130 @@
+version: "3.9"
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    ports:
+      - "5173:5173"
+    depends_on:
+      - auth-service
+      - project-service
+      - bug-service
+      - notification-service
+
+    networks:
+      - isoc-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - isoc-network
+
+  auth-service:
+    build: ./auth
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: mysql+pymysql://root:password@auth-db:3306/authdb
+
+    networks:
+      - isoc-network
+    depends_on:
+      - auth-db
+
+  auth-db:
+    image: mariadb:11
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: authdb
+    networks:
+      - isoc-network
+    volumes:
+      - ./auth/db:/docker-entrypoint-initdb.d
+    ports:
+      - "3307:3306"
+
+  project-service:
+    build: ./project
+    ports:
+      - "8002:8000"
+    environment:
+      DATABASE_URL: mysql+pymysql://root:password@project-db:3306/projectdb
+
+    networks:
+      - isoc-network
+    depends_on:
+      - project-db
+
+  project-db:
+    image: mariadb:11
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: projectdb
+    volumes:
+      - ./project/db:/docker-entrypoint-initdb.d
+    networks:
+      - isoc-network
+    ports:
+      - "3308:3306"
+
+  bug-service:
+    build: ./bug
+    ports:
+
+      - "8003:8000"
+    environment:
+      DATABASE_URL: mysql+pymysql://root:password@bug-db:3306/bugdb
+      RABBITMQ_HOST: rabbitmq
+
+    networks:
+      - isoc-network
+    depends_on:
+      - bug-db
+      - rabbitmq
+
+  bug-db:
+    image: mariadb:11
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: bugdb
+    volumes:
+      - ./bug/db:/docker-entrypoint-initdb.d
+    networks:
+      - isoc-network
+    ports:
+      - "3309:3306"
+
+  notification-service:
+    build: ./notifications
+    ports:
+      - "8004:8000"
+    environment:
+      DATABASE_URL: mysql+pymysql://root:password@notification-db:3306/notificationdb
+      RABBITMQ_HOST: rabbitmq
+
+    networks:
+      - isoc-network
+    depends_on:
+      - notification-db
+      - rabbitmq
+
+  notification-db:
+    image: mariadb:11
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: notificationdb
+    volumes:
+      - ./notification/db:/docker-entrypoint-initdb.d
+    networks:
+      - isoc-network
+    ports:
+      - "3310:3306"
+
+networks:
+  isoc-network:
+    driver: bridge

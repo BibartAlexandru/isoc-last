@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    email VARCHAR(255) NOT NULL
+);
+
+ALTER TABLE users
+ADD CONSTRAINT uq_users_email UNIQUE (email);
