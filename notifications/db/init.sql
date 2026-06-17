@@ -14,3 +14,8 @@ CREATE TABLE notification (
     bug_id INT NOT NULL,
     description VARCHAR(255) NOT NULL
 );
+
+INSERT INTO notification_conf (user_id, min_severity) VALUES
+    (1, 3),
+    (2, 1),
+    (3, 4);
