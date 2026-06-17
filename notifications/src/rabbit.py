@@ -3,24 +3,37 @@ import json
 import asyncio
 
 
-def consume():
+async def consume(
+    queue: asyncio.Queue
+):
+
     connection = pika.BlockingConnection(
         pika.ConnectionParameters(
-            "rabbitmq"
+            host="rabbitmq"
         )
     )
 
     channel = connection.channel()
+
+
     channel.queue_declare(
         queue="bug_updates"
     )
 
 
-    def callback(ch, method, props, body):
-        event=json.loads(body)
-        print(
-            "BUG UPDATE:",
-            event
+    def callback(
+        ch,
+        method,
+        properties,
+        body
+    ):
+
+        event = json.loads(body)
+
+
+        asyncio.run_coroutine_threadsafe(
+            queue.put(event),
+            asyncio.get_event_loop()
         )
 
 
