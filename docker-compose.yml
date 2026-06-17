@@ -56,6 +56,7 @@ services:
       - "8002:8000"
     environment:
       DATABASE_URL: mysql+pymysql://root:password@project-db:3306/projectdb
+      JWT_SECRET: 'nemtau_overlord'
     volumes:
     - ./certs:/certs
     networks:
@@ -124,7 +125,7 @@ services:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: notificationdb
     volumes:
-      - ./notification/db:/docker-entrypoint-initdb.d
+      - ./notifications/db:/docker-entrypoint-initdb.d
     networks:
       - isoc-network
     ports:
