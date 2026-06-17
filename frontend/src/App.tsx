@@ -1,6 +1,8 @@
 import Login from "./pages/Login";
 import Projects from "./pages/Projects";
 import Project from "./pages/Project";
+import BugPage from "./pages/Bug";
+import NotificationSettings from "./pages/NotificationSettings";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotificationBox from "./components/NotificationBox";
 import { Routes, Route } from "react-router-dom";
@@ -12,6 +14,8 @@ function AuthLayout() {
       <Routes>
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<Project />} />
+        <Route path="/bugs/:id" element={<BugPage />} />
+        <Route path="/notifications/settings" element={<NotificationSettings />} />
       </Routes>
     </>
   );
