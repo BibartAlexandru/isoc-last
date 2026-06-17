@@ -4,6 +4,7 @@ import Project from "./pages/Project";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotificationBox from "./components/NotificationBox";
 import { Routes, Route } from "react-router-dom";
+import "./index.css";
 
 function AuthLayout() {
   return (
