@@ -4,9 +4,21 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>Bug Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              mono: ['ui-monospace', 'JetBrains Mono', 'Consolas', 'monospace'],
+            }
+          }
+        }
+      }
+    </script>
   </head>
-  <body>
+  <body class="bg-zinc-950 text-zinc-100">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

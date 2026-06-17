@@ -1,4 +1,2 @@
-@import "tailwindcss";
-
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; -webkit-font-smoothing: antialiased; }

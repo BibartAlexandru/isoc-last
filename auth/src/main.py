@@ -35,6 +35,24 @@ def db():
         session.close()
 
 
+@app.get("/api/users")
+def get_users(session: Session = Depends(db)):
+    return session.query(User).all()
+
+@app.get("/api/user/{user_id}")
+def get_user(user_id: int, session: Session = Depends(db)):
+    user = session.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@app.get("/api/user/by-email")
+def get_user_by_email(email: str, session: Session = Depends(db)):
+    user = session.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
 @app.post("/api/login/google")
 def google_login(
     payload: dict,

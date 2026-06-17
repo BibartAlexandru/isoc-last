@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
+import { NotificationPanel, useNotifications } from "../components/NotificationBox";
 
 const PROJECT_API = "https://localhost:8002";
 const BUG_API = "https://localhost:8003";
+const AUTH_API = "https://localhost:8001";
 
 interface Member { user_id: number; role: string }
 interface Project {
@@ -14,11 +16,11 @@ interface Project {
 }
 interface Bug {
   id: number; name: string; feature: string; submitter_id: number;
-  assignee_id: number; creation_date: string; estimated_fixed_date: string;
-  status: string; project_id: number; archive_reason?: string | null;
+  assignee_id: number | null; creation_date: string; estimated_fixed_date: string;
+  status: string; severity: number; project_id: number; archive_reason?: string | null;
 }
+interface User { id: number; name: string; email: string }
 
-// --- Shared styles ---
 const inputCls = "w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors";
 const primaryBtn = "px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer whitespace-nowrap";
 const secondaryBtn = "px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 rounded-lg text-sm font-medium transition-colors cursor-pointer";
@@ -30,6 +32,11 @@ const bugStatusBorder: Record<string, string> = {
   rezolvat: "border-l-emerald-500",
   verificat: "border-l-sky-500",
   arhivat: "border-l-zinc-700",
+};
+
+const severityLabel: Record<number, string> = { 1: "Low", 2: "Med", 3: "High", 4: "Crit", 5: "Blkr" };
+const severityColor: Record<number, string> = {
+  1: "text-zinc-500", 2: "text-yellow-500", 3: "text-orange-400", 4: "text-red-400", 5: "text-red-600",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -56,14 +63,24 @@ function SectionHeader({ title }: { title: string }) {
   );
 }
 
-const emptyBugForm = { name: "", feature: "", assignee_id: "", estimated_fixed_date: "", status: "activ" };
+const emptyBugForm = { name: "", feature: "", assigneeEmail: "", estimated_fixed_date: "", status: "activ", severity: 1 };
+
+async function resolveEmail(email: string, headers: Record<string, string>): Promise<number | null> {
+  if (!email.trim()) return null;
+  const res = await fetch(`${AUTH_API}/api/user/by-email?email=${encodeURIComponent(email.trim())}`, { headers });
+  if (!res.ok) return undefined as any;
+  const u: User = await res.json();
+  return u.id;
+}
 
 export default function Project() {
   const { id } = useParams();
-  const { token, userId } = useAuth();
+  const { token, userId, userName } = useAuth();
+  const { notifications } = useNotifications();
 
   const [project, setProject] = useState<Project | null>(null);
   const [bugs, setBugs] = useState<Bug[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [bugSearch, setBugSearch] = useState("");
 
   const [editing, setEditing] = useState(false);
@@ -76,8 +93,10 @@ export default function Project() {
 
   const [showCreateBug, setShowCreateBug] = useState(false);
   const [bugForm, setBugForm] = useState(emptyBugForm);
+  const [bugFormEmailError, setBugFormEmailError] = useState("");
   const [editingBugId, setEditingBugId] = useState<number | null>(null);
-  const [bugEditForm, setBugEditForm] = useState({ name: "", feature: "", assignee_id: "", status: "" });
+  const [bugEditForm, setBugEditForm] = useState({ name: "", feature: "", assigneeEmail: "", status: "", severity: 1 });
+  const [bugEditEmailError, setBugEditEmailError] = useState("");
   const [archivingBugId, setArchivingBugId] = useState<number | null>(null);
   const [bugArchiveReason, setBugArchiveReason] = useState("");
 
@@ -87,13 +106,22 @@ export default function Project() {
   const isOwner = project?.owner_id === userId;
   const isArchived = !!project?.archive_reason;
 
+  function userEmail(uid: number | null) {
+    if (uid == null) return null;
+    return users.find((u) => u.id === uid)?.email ?? `#${uid}`;
+  }
+
   async function loadProject() {
-    const res = await fetch(`${PROJECT_API}/api/project/${id}`, { headers });
-    if (res.ok) {
-      const data: Project = await res.json();
+    const [projRes, userRes] = await Promise.all([
+      fetch(`${PROJECT_API}/api/project/${id}`, { headers }),
+      fetch(`${AUTH_API}/api/users`, { headers }),
+    ]);
+    if (projRes.ok) {
+      const data: Project = await projRes.json();
       setProject(data);
       setEditForm({ name: data.name, description: data.description, status: data.status });
     }
+    if (userRes.ok) setUsers(await userRes.json());
   }
 
   async function loadBugs(extraFilter: object = {}) {
@@ -143,17 +171,21 @@ export default function Project() {
   }
 
   async function createBug() {
+    setBugFormEmailError("");
     if (!bugForm.name.trim() || !bugForm.feature.trim() || !bugForm.estimated_fixed_date) {
       setError("Name, feature and estimated date are required."); return;
     }
+    const assignee_id = await resolveEmail(bugForm.assigneeEmail, headers);
+    if (assignee_id === undefined) { setBugFormEmailError("User not found with that email."); return; }
     const res = await fetch(`${BUG_API}/api/bug`, {
       method: "POST", headers,
       body: JSON.stringify({
         name: bugForm.name, feature: bugForm.feature, submitter_id: userId,
-        assignee_id: bugForm.assignee_id ? parseInt(bugForm.assignee_id, 10) : null,
+        assignee_id,
         creation_date: new Date().toISOString(),
         estimated_fixed_date: new Date(bugForm.estimated_fixed_date).toISOString(),
-        status: bugForm.status, project_id: parseInt(id!),
+        status: bugForm.status, severity: bugForm.severity,
+        project_id: parseInt(id!),
       }),
     });
     if (!res.ok) { setError("Failed to create bug."); return; }
@@ -161,8 +193,14 @@ export default function Project() {
   }
 
   async function saveBugEdit(bugId: number) {
-    const payload: any = { name: bugEditForm.name, feature: bugEditForm.feature, status: bugEditForm.status };
-    if (bugEditForm.assignee_id) payload.assignee_id = parseInt(bugEditForm.assignee_id, 10);
+    setBugEditEmailError("");
+    const assignee_id = await resolveEmail(bugEditForm.assigneeEmail, headers);
+    if (assignee_id === undefined) { setBugEditEmailError("User not found with that email."); return; }
+    const payload: any = {
+      name: bugEditForm.name, feature: bugEditForm.feature,
+      status: bugEditForm.status, severity: bugEditForm.severity,
+    };
+    if (assignee_id !== null) payload.assignee_id = assignee_id;
     const res = await fetch(`${BUG_API}/api/bug/${bugId}`, {
       method: "PUT", headers, body: JSON.stringify(payload),
     });
@@ -201,13 +239,19 @@ export default function Project() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Navbar */}
-      <nav className="border-b border-zinc-800/60 px-6 h-12 flex items-center gap-2">
-        <Link to="/projects" className="text-zinc-500 hover:text-zinc-200 transition-colors flex items-center gap-1 text-sm">
-          <ChevronLeft size={15} />
-          Projects
-        </Link>
-        <span className="text-zinc-700 text-sm">/</span>
-        <span className="text-zinc-300 text-sm font-medium truncate max-w-xs">{project.name}</span>
+      <nav className="border-b border-zinc-800/60 px-6 h-12 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Link to="/projects" className="text-zinc-500 hover:text-zinc-200 transition-colors flex items-center gap-1 text-sm">
+            <ChevronLeft size={15} />
+            Projects
+          </Link>
+          <span className="text-zinc-700 text-sm">/</span>
+          <span className="text-zinc-300 text-sm font-medium truncate max-w-xs">{project.name}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <NotificationPanel notifications={notifications} />
+          {userName && <span className="text-zinc-500 text-xs font-mono hidden sm:block">{userName}</span>}
+        </div>
       </nav>
 
       <div className="max-w-2xl mx-auto px-6 py-8">
@@ -295,9 +339,11 @@ export default function Project() {
                 <li key={m.user_id} className="flex items-center justify-between px-4 py-2.5">
                   <div className="flex items-center gap-3">
                     <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center">
-                      <span className="text-zinc-400 font-mono text-xs">{m.user_id}</span>
+                      <span className="text-zinc-400 text-xs">@</span>
                     </div>
-                    <span className="text-zinc-300 text-sm font-mono">#{m.user_id}</span>
+                    <span className="text-zinc-300 text-sm font-mono">
+                      {userEmail(m.user_id) ?? `#${m.user_id}`}
+                    </span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-zinc-600 text-xs">{m.role}</span>
@@ -357,14 +403,15 @@ export default function Project() {
                   value={bugForm.name} onChange={(e) => setBugForm({ ...bugForm, name: e.target.value })} />
               </div>
               <div>
-                <label className="text-zinc-500 text-xs uppercase tracking-wider mb-1.5 block">Feature / Component</label>
+                <label className="text-zinc-500 text-xs uppercase tracking-wider mb-1.5 block">Feature</label>
                 <input className={inputCls} placeholder="e.g. auth, payment"
                   value={bugForm.feature} onChange={(e) => setBugForm({ ...bugForm, feature: e.target.value })} />
               </div>
               <div>
-                <label className="text-zinc-500 text-xs uppercase tracking-wider mb-1.5 block">Assignee ID</label>
-                <input className={`${inputCls} font-mono`} placeholder="User ID"
-                  value={bugForm.assignee_id} onChange={(e) => setBugForm({ ...bugForm, assignee_id: e.target.value })} />
+                <label className="text-zinc-500 text-xs uppercase tracking-wider mb-1.5 block">Assignee email</label>
+                <input className={inputCls} placeholder="user@email.com"
+                  value={bugForm.assigneeEmail} onChange={(e) => setBugForm({ ...bugForm, assigneeEmail: e.target.value })} />
+                {bugFormEmailError && <p className="text-red-400 text-xs mt-1">{bugFormEmailError}</p>}
               </div>
               <div>
                 <label className="text-zinc-500 text-xs uppercase tracking-wider mb-1.5 block">Est. fix date</label>
@@ -378,6 +425,17 @@ export default function Project() {
                   <option value="activ">Activ</option>
                   <option value="rezolvat">Rezolvat</option>
                   <option value="verificat">Verificat</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-zinc-500 text-xs uppercase tracking-wider mb-1.5 block">Severity</label>
+                <select className={inputCls} value={bugForm.severity}
+                  onChange={(e) => setBugForm({ ...bugForm, severity: parseInt(e.target.value) })}>
+                  <option value={1}>1 — Low</option>
+                  <option value={2}>2 — Medium</option>
+                  <option value={3}>3 — High</option>
+                  <option value={4}>4 — Critical</option>
+                  <option value={5}>5 — Blocker</option>
                 </select>
               </div>
             </div>
@@ -407,9 +465,10 @@ export default function Project() {
                           onChange={(e) => setBugEditForm({ ...bugEditForm, feature: e.target.value })} />
                       </div>
                       <div>
-                        <label className="text-zinc-500 text-xs uppercase tracking-wider mb-1.5 block">Assignee ID</label>
-                        <input className={`${inputCls} font-mono`} value={bugEditForm.assignee_id}
-                          onChange={(e) => setBugEditForm({ ...bugEditForm, assignee_id: e.target.value })} />
+                        <label className="text-zinc-500 text-xs uppercase tracking-wider mb-1.5 block">Assignee email</label>
+                        <input className={inputCls} placeholder="user@email.com" value={bugEditForm.assigneeEmail}
+                          onChange={(e) => setBugEditForm({ ...bugEditForm, assigneeEmail: e.target.value })} />
+                        {bugEditEmailError && <p className="text-red-400 text-xs mt-1">{bugEditEmailError}</p>}
                       </div>
                       <div>
                         <label className="text-zinc-500 text-xs uppercase tracking-wider mb-1.5 block">Status</label>
@@ -420,6 +479,17 @@ export default function Project() {
                           <option value="verificat">Verificat</option>
                         </select>
                       </div>
+                      <div>
+                        <label className="text-zinc-500 text-xs uppercase tracking-wider mb-1.5 block">Severity</label>
+                        <select className={inputCls} value={bugEditForm.severity}
+                          onChange={(e) => setBugEditForm({ ...bugEditForm, severity: parseInt(e.target.value) })}>
+                          <option value={1}>1 — Low</option>
+                          <option value={2}>2 — Medium</option>
+                          <option value={3}>3 — High</option>
+                          <option value={4}>4 — Critical</option>
+                          <option value={5}>5 — Blocker</option>
+                        </select>
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <button className={primaryBtn} onClick={() => saveBugEdit(bug.id)}>Save</button>
@@ -428,24 +498,37 @@ export default function Project() {
                   </div>
                 ) : (
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-zinc-100 text-sm font-medium flex-1 truncate">{bug.name}</span>
-                      <StatusBadge status={bug.status} />
-                      <span className="text-zinc-700 text-xs font-mono">#{bug.id}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 text-xs text-zinc-600 font-mono">
-                      <span>feat: {bug.feature}</span>
-                      <span>→ #{bug.assignee_id}</span>
-                      <span>by #{bug.submitter_id}</span>
-                      <span>{bug.creation_date?.slice(0, 10)}</span>
-                      <span>due {bug.estimated_fixed_date?.slice(0, 10)}</span>
-                    </div>
+                    <Link to={`/bugs/${bug.id}`} className="block group">
+                      <div className="flex items-center gap-2">
+                        <span className="text-zinc-100 text-sm font-medium flex-1 truncate group-hover:text-indigo-400 transition-colors">{bug.name}</span>
+                        <StatusBadge status={bug.status} />
+                        {bug.severity && (
+                          <span className={`text-xs font-mono ${severityColor[bug.severity] ?? "text-zinc-500"}`}>
+                            {severityLabel[bug.severity]}
+                          </span>
+                        )}
+                        <span className="text-zinc-700 text-xs font-mono">#{bug.id}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 text-xs text-zinc-600 font-mono">
+                        <span>feat: {bug.feature}</span>
+                        {bug.assignee_id != null && (
+                          <span>→ {userEmail(bug.assignee_id) ?? `#${bug.assignee_id}`}</span>
+                        )}
+                        <span>by {userEmail(bug.submitter_id) ?? `#${bug.submitter_id}`}</span>
+                        <span>due {bug.estimated_fixed_date?.slice(0, 10)}</span>
+                      </div>
+                    </Link>
                     {!bug.archive_reason && (
                       <div className="flex items-center gap-2 mt-2">
                         <button className={ghostBtn} onClick={() => {
                           setEditingBugId(bug.id);
-                          setBugEditForm({ name: bug.name, feature: bug.feature, assignee_id: String(bug.assignee_id), status: bug.status });
-                          setError("");
+                          const currentEmail = userEmail(bug.assignee_id) ?? "";
+                          setBugEditForm({
+                            name: bug.name, feature: bug.feature,
+                            assigneeEmail: currentEmail.startsWith("#") ? "" : currentEmail,
+                            status: bug.status, severity: bug.severity ?? 1,
+                          });
+                          setBugEditEmailError(""); setError("");
                         }}>Edit</button>
                         {bug.submitter_id === userId && (
                           archivingBugId === bug.id ? (

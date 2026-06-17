@@ -7,6 +7,7 @@ CREATE TABLE bugs (
     creation_date DATETIME NOT NULL,
     estimated_fixed_date DATETIME NOT NULL,
     status VARCHAR(50) NOT NULL,
+    severity INT NOT NULL DEFAULT 1,
     project_id INT NOT NULL,
     archive_reason VARCHAR(255),
     archived_date DATETIME,
